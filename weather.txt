@@ -1,0 +1,113 @@
+Weather.py
+
+Original: 2018-Apr-8
+Updated: 2019-Jan-31
+
+The basis for this project came from one described online by Jim Kemp (kemp.jim@gmail.com).  While
+the my display screen is laid out VERY similar to Mr. Kemp's, there is very little left from his code.
+
+Complete details for Jim Kemp's project can be found here:
+	http://www.instructables.com/id/Raspberry-Pi-Internet-Weather-Station/
+
+Portions Copyright (c) 2014 Jim Kemp <kemp.jim@gmail.com>
+Overwhelming majority Copyright (c) 2018 Wayne Geiser <geiserw@gmail.com>
+
+The largest change is that I get my weather data from WeatherUnderground.com rather than from
+weather.com.  The major reasons I decided to do this are:
+	1) weather.com only updated once an hour (even though the code was looking for an update
+		more frequently)
+	2) WeatherUnderground allows me to specify a personal weather station.  There is one
+		approximately half a mile from my home, so it displays much more local data
+
+I have also added a number of new functionality to the code.  In no particular order:
+	1) Weather display
+		a) Current temperature, humidity and barometric pressure change color (red = rising, 
+			blue = falling)
+		b) I used the empty space to the right of the display to place tabs that allow you to
+			switch to all the other functions (Almanac, Calendar, History, and Details)
+		c) Forecast areas on the bottom of the display can be selected to display the text forecast
+			given by WeatherUnderground for that day
+	2) Almanac display
+		a) Added an icon depicting the phase of the moon to the lower right corner of the display
+		b) Added Moonrise/Set times
+	3) Calendar
+	4) History
+		a) All new screen that keeps track of minimum and maximum temperatures and daily rainfall
+			for the past 7 days (or as many as the weather station has been on for)
+	5) Details
+		a) All new screen that displays the text forecast provided by WeatherUnderground.  If you use
+			the "Details" tab, you get today.  If you use the forecast areas on the bottom of the
+			weather screen, you get that day's text forecast.
+	6) Other
+		a) Text messages are sent when WeatherUnderground issues a weather alert for the selected
+			personal weather station's area
+		b) mouse / touch screen support to handle the tabs and forecasting functionality
+
+Raspberry Pi configuration for this program:
+	1) Code added to /etc/rc.local to start the program automatically on startup
+		a) err.txt file is saved as err.bak
+		b) an email is sent containing err.bak to preserve it so any possible problems can be
+			fixed
+Version 1.01
+	1) Added code to save values on ThingSpeak for:
+		a) weatherunderground data (temperature, humidity, and barometric pressure)
+		b) radio thermostat temperature and humidity
+	2) Display a red frame when alerts have been sent
+	3) Use pickle to save max and min temperatures and rainfall to be able to re-seed History
+		screen on restart
+	4) Displayed version string next to weatherunderground logo
+	5) No code bug: Wearther Alert was a typo on my phone
+
+Version 1.02
+	1) Complete drawing the frame in red if there is an alert
+	2) Don't return out of weather update procedure if an alert error.  The first time through,
+		there won't be any data!
+	3) Changed static IP address to thermostat name (thermostat-76-8C-C9 in my case) as the weather
+		station stopped working when the tstat was unexpectedly given a new IP address (why?)
+	4) In the heating season (i.e., the thermostat is set to heat), turn on the furnace fan if the
+		basement temp sensor shows hotter than the hallway thermostat.  Otherwise, if it is ON, turn
+		it to AUTO.
+	5) in the non-heating season (i.e., the thermostat is NOT set to heat), turn the furnace fan to
+		on if the basement temp sensor shows lower than the hallway thermostat.  Otherwise, if
+		it is on circulate, turn it to auto.  When doing this, also turn on Save Energy mode and turn it
+		off when resetting (note that this requires putting the thermostat in hold mode as well.)
+	6) Began creating a series of modules to isolate the code for Radio Thermostat, ThingSpeak, Weather
+		Underground, etc.
+
+Version 1.03
+	1) Loop through nearby PWS' until we get newer data than we are already displaying
+	2) Shorten the "Updated" line on the Almanac screen and add the PWS which gave us the data
+	3) Create the icons (holds the weather forecast and moon phase icons so we don't have to keep going
+		out to the Internet) directory if it doesn't exist
+	4) Keep track of the number of calls to WeatherUnderground made each day
+	5) Changed the password to "pi" user from the default for security reasons
+	6) Changed the network name to "Stately Wayne Manor" as I changed names on the router
+	7) Removed the "save_energy" code as setting the t-stat to that mode makes it impossible to alter
+		the settings using the smart phone app
+	8) Fixed problem with ThingSpeak updates.  Apparently, you need at least 15 seconds between calls.
+	9) Display the basement temperature on the thermostat's display area
+
+Version 1.04
+	1) Changed calendar screen (not really much use) to display the last alert that was sent.
+	2) Got rid of the F or C for the temperature display if the temperature was more than 100 or less
+		than -9
+	3) Log PWS used for each period to a ThingSpeak field
+	4) Problem using 0.0 as my data value for "invalid weather data" - It displays the temp as white
+		for 0, 1 (when raising from 0), and -1 (when lowering from 0) and it didn't log the min temp
+		when it was -1
+
+Future directions:
+	2) Control the WiFi thermostat with as-yet-determined algorithm that takes outside weather
+		into account
+	3) Connect to our alarm system so that armed/unarmed can be added to the thermostat
+		algorithm
+	8) Record highs and lows and max rainfall since turned on?
+	9) Publish data to geiserweb.com
+	11) Configuration
+		a) turn email/texts on/off
+		b) change email address, text phone number
+	13) Voice activated?
+	17) Error check return from hallway thermostat to be able to retry (temp sometimes returns -1)
+	18) Figure out if it isn't running in a cron job and restart automatically
+	20) Display internal temperature gotten from thermostat
+	21) Check versions of utilities in weather.py

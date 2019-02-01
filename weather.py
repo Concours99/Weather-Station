@@ -76,9 +76,9 @@ TEXT_HEIGHT_SMALL = 0.06
 
 RUNNING_LOC = "./"
 
-TEMP_DEFAULT = 0.0
-BARO_DEFAULT = 0.0
-HUMID_DEFAULT = 0
+TEMP_DEFAULT = -99.0
+BARO_DEFAULT = -99.0
+HUMID_DEFAULT = -99
 
 # Control tabs
 TAB_LABELS = ["Weather", "Almanac", "Alert", "History", "Details"]
