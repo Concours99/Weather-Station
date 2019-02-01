@@ -1,0 +1,6 @@
+TSChannelsAndKeys.py
+TWAccountSettings.py
+WUAccountSettings.py
+__pycache__/
+icons/
+*.p
