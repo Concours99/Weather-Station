@@ -765,8 +765,9 @@ class SmDisplay:
             tempchar = "C"
             barpressstr = "mb"
             speedstr = "kph"
-        if (int(self.temp) > 99) or (int(self.temp) < -9) :   # three digits
-            tempchar = ""                           # get rid of the character for F or C
+        if (self.temp != "??") :
+            if (int(self.temp) > 99) or (int(self.temp) < -9) :   # three digits
+                tempchar = ""              # get rid of the character for F or C
 
         myDisp.draw_screen_outline()
         # .15 is 15% down from the top of the screen for date/time underline
