@@ -4,12 +4,13 @@
 #
 # Helper functiona and definitions to interface with a Radio Thermostat
 
-WGRadioThermostat_version = "1.01"
+WGRadioThermostat_version = "1.02"
 
 from urllib3 import PoolManager
 import json
 from urllib.request import urlretrieve, urlopen
 import pprint
+import datetime
 
 from WGHelper import *
 
@@ -30,6 +31,9 @@ SAVE_ENERGY_MODE_ENABLE = 1
 # hold = target temperature hold
 HOLD_DISABLED = 0
 HOLD_ENABLED = 1
+# intensity = nightlight values
+NIGHTLIGHT_OFF = 0
+NIGHTLIGHT_ON = 4
 
 RadTherm_float_ERROR = -999.0
 RadTherm_int_ERROR = -999
@@ -170,6 +174,7 @@ def RadThermSetFloat(what, value, trace) :
 #       fmode = fan mode (see above for valid values)
 #       mode = Save Energy mode
 #       hold = Target temperature hold status (see above for values)
+#       intensity = night light value (0 - 4)
 #   value = what to set it to
 #   trace = true or false, print trace messages
 #
@@ -181,8 +186,11 @@ def RadThermSetInt(what, value, trace) :
             if what == "mode" :
                 resource = "/save_energy"
             else :
-                WGErrorPrint("RadThermGetInt", " Invalid 'what' argument " + what)
-                return RadTherm_int_ERROR
+                if what == "intensity" :
+                    resource = "/night_light"
+                else :
+                    WGErrorPrint("RadThermGetInt", " Invalid 'what' argument " + what)
+                    return RadTherm_int_ERROR
         pm = PoolManager()
         encoded_body = json.dumps({what: value})
         r = pm.request_encode_url('POST', 'http://' + TSTAT_IP + '/tstat' + resource,
@@ -230,5 +238,31 @@ def RadThermSetStr(what, value, trace) :
     except :
         WGErrorPrint("RadThermSetStr", " Unsuccessful POST request (exception) of " + what)
         return RadTherm_str_ERROR
-        
-               
+
+###############################################################################
+#
+# Return the lowest temperature in today's program
+# Args:
+#   trace = true or false, print trace messages
+#
+def RadThermGetTodaysLowestSetting(trace) :
+    try :
+        pm = PoolManager()
+        url = 'http://' + TSTAT_IP +'/tstat/program/heat'
+        r = pm.request('GET', url)
+        ht = json.loads(r.data.decode('utf-8'))
+        if trace :
+            pp = pprint.PrettyPrinter(indent=4)
+            pp.pprint(ht)
+            WGTracePrint(what + " is " + str(ht[what]))
+        wkdy = datetime.datetime.today().weekday()
+        prog = ht[str(wkdy)]
+        f = 999.0
+        for n in prog :
+            if float(n) < f :
+                f = float(n)
+        return f
+    except :
+        WGErrorPrint("RadThermGetTodaysLowestSetting", " Unsuccessful POST request")
+        return RadTherm_float_ERROR
+    
