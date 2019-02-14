@@ -1,7 +1,7 @@
 Weather.py
 
 Original: 2018-Apr-8
-Updated: 2019-Jan-31
+Updated: 2019-Feb-14
 
 The basis for this project came from one described online by Jim Kemp (kemp.jim@gmail.com).  While
 the my display screen is laid out VERY similar to Mr. Kemp's, there is very little left from his code.
@@ -95,6 +95,9 @@ Version 1.04
 	4) Problem using 0.0 as my data value for "invalid weather data" - It displays the temp as white
 		for 0, 1 (when raising from 0), and -1 (when lowering from 0) and it didn't log the min temp
 		when it was -1
+	5) Update the tstat message line first in case we don't do any of the other working
+		in the Furnace fan control code.  If the tstat is on "hold", assume that someone
+		set the tstat to that state and don't change it.
 
 Future directions:
 	2) Control the WiFi thermostat with as-yet-determined algorithm that takes outside weather
