@@ -633,20 +633,6 @@ class SmDisplay:
     # house?
     #
     def FurnaceFanControl(self) :
-        tstat_status = RadThermStatus(TRACE)
-        if 'error' in tstat_status :
-            WGErrorPrint("FurnaceFanControl", "Error getting thermostat status.  Skipping thermostat control")
-            return  # try again the next time
-        if TRACE :
-            pp = pprint.PrettyPrinter(indent=4)
-            pp.pprint(tstat_status)
-        ht = tstat_status['temp']       # air temp
-        fan = tstat_status['fmode']     # fan mode
-        tmode = tstat_status['tmode']   # thermostat mode (heat?)
-        hold = tstat_status['hold']     # hold?
-        mode = RadThermGetInt("mode", TRACE)
-        if mode == RadTherm_int_ERROR :
-            return  # try again next time
         # Get the temperature from the basement sensor
         bt = ThingSpeakGetFloat(TS_BASEMENT_CHAN, "1", TRACE)
         if bt == ThingSpeak_float_ERROR :
@@ -658,6 +644,23 @@ class SmDisplay:
         if strret == RadTherm_str_ERROR :
             WGErrorPrint("FurnaceFanControl", "Warning, unable to set user line 0 values")
             # Don't have to skip out as this isn't critical
+
+        tstat_status = RadThermStatus(TRACE)
+        if 'error' in tstat_status :
+            WGErrorPrint("FurnaceFanControl", "Error getting thermostat status.  Skipping thermostat control")
+            return  # try again the next time
+        if TRACE :
+            pp = pprint.PrettyPrinter(indent=4)
+            pp.pprint(tstat_status)
+        ht = tstat_status['temp']       # air temp
+        fan = tstat_status['fmode']     # fan mode
+        tmode = tstat_status['tmode']   # thermostat mode (heat?)
+        hold = tstat_status['hold']     # hold?
+        if hold == HOLD_ENABLED :
+            return # don't mess with the settings, someone wants them this way
+        mode = RadThermGetInt("mode", TRACE)
+        if mode == RadTherm_int_ERROR :
+            return  # try again next time
         # Is the thermostat set to "heat" (i.e., it's "winter")?
         if tmode == TMODE_HEAT :
             # If the temperature in the basement is the right number of degrees hotter than the hallway
