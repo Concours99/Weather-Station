@@ -48,6 +48,11 @@ def GetWeatherData(WU) :
             WU_Num_Calls_Made_Today = WU_Num_Calls_Made_Today + 1
             status = 1
             co = json.loads(r.data.decode('utf-8'))['current_observation']
+            if co['temp_f'] is None :
+                WGErrorPrint("GetWeatherData", PWS +
+                                " temp_f is None.  Calls Today = " +
+                                str(WU_Num_Calls_Made_Today))
+                continue
             if WU_Last_Observation_Epoch < int(co['observation_epoch']) :
                 # we got new data
                 WU_Last_Observation_Epoch = int(co['observation_epoch'])

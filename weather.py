@@ -604,6 +604,8 @@ class SmDisplay:
                 WGTracePrint('temp is ' + self.temp)
         except :
             WGErrorPrint("UpdateWeather", "Weather Collection Error #2")
+            pp = pprint.PrettyPrinter(indent=4)
+            pp.pprint(WeatherData)
             self.temp = '??'
             self.wLastUpdate = ''
        
