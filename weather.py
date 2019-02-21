@@ -105,8 +105,7 @@ BORDER_WIDTH = 5
 
 FFC_State = {'beenhere' : False,    # State variable to know when we've
                 'fmode' : -1,       # here before and what to return the
-                'temp' : -1,
-                'hold' : -1}        # thermostat values to that we have changed
+                'temp' : -1}        # thermostat values to that we have changed
 
 DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
@@ -657,8 +656,7 @@ class SmDisplay:
         ht = tstat_status['temp']       # air temp
         fan = tstat_status['fmode']     # fan mode
         tmode = tstat_status['tmode']   # thermostat mode (heat?)
-        hold = tstat_status['hold']     # hold?
-        if hold == HOLD_ENABLED :
+        if tstat_status['hold'] == HOLD_ENABLED :
             return # don't mess with the settings, someone wants them this way
         mode = RadThermGetInt("mode", TRACE)
         if mode == RadTherm_int_ERROR :
@@ -680,22 +678,14 @@ class SmDisplay:
                     if intret == RadTherm_int_ERROR or t == RadTherm_float_ERROR:
                         return # try again next time
                     FFC_State['fmode'] = fan
-                    FFC_State['hold'] = hold
                     # Turn the furnace fan on
                     intret = RadThermSetInt("fmode", FAN_ON, TRACE)
                     if intret == RadTherm_int_ERROR :
-                        return # try again next time
-                    # Hold t-stat settings
-                    intret = RadThermSetInt("hold", HOLD_ENABLED, TRACE)
-                    if intret == RadTherm_int_ERROR :
-                        # Fix anything we were successful at and leave
-                        intret = RadThermSetInt("fmode", FFC_State['fmode'], TRACE)
                         return # try again next time
                     # Set temp target temperature
                     floatret = RadThermSetFloat("t_heat", t, TRACE)
                     if floatret == RadTherm_float_ERROR :
                         # Fix anything we were successful at and leave
-                        intret = RadThermSetInt("hold", HOLD_DISABLED, TRACE)
                         intret = RadThermSetInt("fmode", FFC_State['fmode'], TRACE)
                         return # try again next time                         
                     FFC_State['beenhere'] = True    # do this as late as possible
@@ -708,9 +698,6 @@ class SmDisplay:
                     intret = RadThermSetInt("fmode", FFC_State['fmode'], TRACE)
                     if intret == RadTherm_int_ERROR :
                         return # try again next time
-                    intret = RadThermSetInt("hold", FFC_State['hold'], TRACE)
-                    if intret == RadTherm_int_ERROR :
-                        return # try again next time
                     # Set Save energy mode on and then off again to run the current program
                     intret = RadThermSetInt("mode", SAVE_ENERGY_MODE_ENABLE, TRACE)
                     if intret == RadTherm_int_ERROR :
@@ -720,7 +707,7 @@ class SmDisplay:
                         return # try again next time
                     FFC_State['beenhere'] = False
                     if CONTROL_LOG :
-                        WGTracePrint("Reurned the furnace fan to previous values")
+                        WGTracePrint("Returned the furnace fan to previous values")
         else :
             # we're not in the heating season, figure out if we want the fan on circulate
             # if the temperature in the basement is the right number of degrees cooler than the hallway
