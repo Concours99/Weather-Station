@@ -257,11 +257,8 @@ def RadThermGetTodaysLowestSetting(trace) :
             WGTracePrint(what + " is " + str(ht[what]))
         wkdy = datetime.datetime.today().weekday()
         prog = ht[str(wkdy)]
-        f = 999.0
-        for n in prog :
-            if float(n) < f :
-                f = float(n)
-        return f
+        prog.sort()
+        return prog[0]
     except :
         WGErrorPrint("RadThermGetTodaysLowestSetting", " Unsuccessful POST request")
         return RadTherm_float_ERROR
