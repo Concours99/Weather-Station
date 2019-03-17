@@ -4,7 +4,7 @@
 #
 # Helper functiona and definitions to interface with a Radio Thermostat
 
-WGRadioThermostat_version = "1.02"
+WGRadioThermostat_version = "1.03"
 
 from urllib3 import PoolManager
 import json
@@ -254,7 +254,6 @@ def RadThermGetTodaysLowestSetting(trace) :
         if trace :
             pp = pprint.PrettyPrinter(indent=4)
             pp.pprint(ht)
-            WGTracePrint(what + " is " + str(ht[what]))
         wkdy = datetime.datetime.today().weekday()
         prog = ht[str(wkdy)]
         prog.sort()
@@ -263,3 +262,46 @@ def RadThermGetTodaysLowestSetting(trace) :
         WGErrorPrint("RadThermGetTodaysLowestSetting", " Unsuccessful POST request")
         return RadTherm_float_ERROR
     
+###############################################################################
+#
+# Return the current days first temp change time
+# Args:
+#   trace = true or false, print trace messages
+#
+def RadThermGetTodaysFirstTempChangeTime(trace) :
+    try :
+        pm = PoolManager()
+        url = 'http://' + TSTAT_IP +'/tstat/program/heat'
+        r = pm.request('GET', url)
+        ht = json.loads(r.data.decode('utf-8'))
+        if trace :
+            pp = pprint.PrettyPrinter(indent=4)
+            pp.pprint(ht)
+        wkdy = datetime.datetime.today().weekday()
+        prog = ht[str(wkdy)]
+        return time(int(prog[0] / 60), prog[0] % 60, 0)
+    except :
+        WGErrorPrint("RadThermGetTodaysFirstTempChangeTime", " Unsuccessful POST request")
+        return RadTherm_float_ERROR
+
+###############################################################################
+#
+# Return the current days first temp change temp
+# Args:
+#   trace = true or false, print trace messages
+#
+def RadThermGetTodaysFirstTempChangeTemp(trace) :
+    try :
+        pm = PoolManager()
+        url = 'http://' + TSTAT_IP +'/tstat/program/heat'
+        r = pm.request('GET', url)
+        ht = json.loads(r.data.decode('utf-8'))
+        if trace :
+            pp = pprint.PrettyPrinter(indent=4)
+            pp.pprint(ht)
+        wkdy = datetime.datetime.today().weekday()
+        prog = ht[str(wkdy)]
+        return prog[1] # temp
+    except :
+        WGErrorPrint("RadThermGetTodaysFirstTempChangeTemp", " Unsuccessful POST request")
+        return RadTherm_float_ERROR

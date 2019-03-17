@@ -1,7 +1,7 @@
 # Weather-Station
 Python code for Raspberry Pi weather station project
 
-There are several files you will need to supply.  I seperated these definitions out as they are specific to my personal
+There are several files you will need to supply.  I separated these definitions out as they are specific to my personal
 accounts on the various websites.
 
 TSChannelsAndKeys.py
@@ -29,11 +29,11 @@ TWILIO_AUTH_TOKEN
 CELL_PHONE
 FROM_PHONE
 
-WUAccountSettings.py
+DSAccountSettings.py
 
-This file contains the definitions for your WeatherUnderground.com account.
+This file contains the definitions for your DarkSky.net account.
 These are the definitions needed to work with the current code ...
 
-WU_API_KEY
-WU_STATE_CODE
-WU_PWS # a list of personal weather stations you want to cycle through to get the weather
+DS_API_KEY = "The API Key provided you by DarkSky.net.  Mine is 32 chars"
+DS_Lat = "String of numerical Latitude of where you want weather data - e.g., Home plate at Fenway Park is 42.346247"
+DS_Lon = "String of numerical Latitude of where you want weather data - e.g., Home plate at Fenway Park is -71.097768"

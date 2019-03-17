@@ -28,7 +28,7 @@
 
 """ Fetches weather reports WeatherUnderground.com for display on small screens."""
 
-__version__ = "v1.04"
+__version__ = "v2.0"
 TRACE = False       # write tracing lines to log file
 CONTROL_LOG = True  # write lines to show control functions
 ALERT = True        # For testing purposes, don't send text alerts
@@ -53,10 +53,6 @@ DISPLAY_WIDE_HEIGHT = 480
 DISPLAY_SIZE = DISPLAY_WIDE # Large or small display / window
 DISPLAY_WIDTH = DISPLAY_WIDE_WIDTH
 DISPLAY_HEIGHT = DISPLAY_WIDE_HEIGHT
-
-UNITS_IMPERIAL = 0
-UNITS_METRIC = 1
-UNITS = UNITS_IMPERIAL # Metric or Imperial units
 
 # Misc constants
 COLOR_BLACK = (0, 0, 0)
@@ -139,7 +135,7 @@ from WGHelper import *
 from WGRadioThermostat import *
 from WGThingSpeak import *
 from WGTwilio import *
-from WGWeatherUnderground import *
+from DarkSky import *
 
 mode = 'w'      # Default to weather mode.
 
@@ -223,7 +219,7 @@ class SmDisplay:
         pygame.display.update()
         self.temp = str(TEMP_DEFAULT)
         self.tempcolor = COLOR_TEXT_NORMAL
-        self.feels_like = 0
+        self.windchill = 0
         self.wind_speed = 0
         self.baro = BARO_DEFAULT
         self.barocolor = COLOR_TEXT_NORMAL
@@ -241,7 +237,7 @@ class SmDisplay:
         # Remember min and max temperatures
         self.max_temps = [0, 0, 0, 0, 0, 0, 0]
         self.min_temps = [0, 0, 0, 0, 0, 0, 0]
-        self.rainfall = [0, 0, 0, 0, 0, 0, 0]
+        # self.rainfall = [0, 0, 0, 0, 0, 0, 0]
         self.curr_day = int(time.strftime("%w"))
         # Remember if we are loading fonts from a file
         fonts = pygame.font.get_fonts()
@@ -355,14 +351,14 @@ class SmDisplay:
         pygame.draw.line(self.screen, color, (0,self.ymax+2), (self.xmax+2,self.ymax+2), BORDER_WIDTH) # Bottom border
         pygame.draw.line(self.screen, color, (self.xmax,2),(self.xmax,self.ymax), BORDER_WIDTH) # right border
         # Add Weather Underground logo to bottom right hand corner of the screen
-        icon = pygame.image.load(os.path.join(RUNNING_LOC, "WU-logo-sm.gif"))
+        icon = pygame.image.load(os.path.join(RUNNING_LOC, "dark-sky-logo.gif"))
         (ix,iy) = icon.get_size()
-        self.screen.blit(icon, (self.xmax, self.ymax-iy))
+        self.screen.blit(icon, (self.xmax+BORDER_WIDTH, self.ymax-iy+BORDER_WIDTH))
         # Display version string
         font = self.LoadFont(FONT_NORMAL, int(self.ymax*TEXT_HEIGHT_SMALL))
         txt = font.render(__version__, True, COLOR_TEXT_NORMAL)
         (tx,ty) = txt.get_size()
-        self.screen.blit(txt, (self.xmax+ix, self.ymax-ty))
+        self.screen.blit(txt, (self.xmax+ix+BORDER_WIDTH+2, self.ymax-ty))
 
     ####################################################################
     #
@@ -370,7 +366,7 @@ class SmDisplay:
     def save_data(self) :
         pickle.dump(self.max_temps, open("max_temps.p", "wb"))
         pickle.dump(self.min_temps, open("min_temps.p", "wb"))
-        pickle.dump(self.rainfall, open("rainfall.p", "wb"))
+        # pickle.dump(self.rainfall, open("rainfall.p", "wb"))
    
     ####################################################################
     #
@@ -379,7 +375,7 @@ class SmDisplay:
         try :
             self.max_temps = pickle.load(open("max_temps.p", "rb"))
             self.min_temps = pickle.load(open("min_temps.p", "rb"))
-            self.rainfall = pickle.load(open("rainfall.p", "rb"))
+            # self.rainfall = pickle.load(open("rainfall.p", "rb"))
         except :
             WGErrorPrint("restore_data", "Restore failed")
     
@@ -418,7 +414,7 @@ class SmDisplay:
             self.curr_day = int(time.strftime("%w"))
             self.max_temps[self.curr_day] = 0
             self.min_temps[self.curr_day] = 0
-            self.rainfall[self.curr_day] = 0
+            # self.rainfall[self.curr_day] = 0
             self.save_data()
 
     ####################################################################
@@ -435,7 +431,7 @@ class SmDisplay:
             WGTracePrint(fil)
         # Does it already exist?
         if (os.path.isfile(fil)) :
-            # If so, don't do anything and return the filename
+           # If so, don't do anything and return the filename
             return fil
         # If not, save the URL to a disk file
         urlretrieve(URL, fil)
@@ -488,117 +484,87 @@ class SmDisplay:
            pp.pprint(WeatherData['alerts'])
         
         try :
-            if (WeatherData['observation_time'] != self.wLastUpdate) :
-                self.wLastUpdate = WeatherData['observation_time']
-                if TRACE :
-                    WGTracePrint("New Weather " + self.wLastUpdate)
-                if (UNITS == UNITS_IMPERIAL) :
-                    self.temp = "%d" % (WeatherData['temp_f'])
-                    self.rainfall[self.curr_day] = WeatherData['precip_today_in']
-                else :
-                    self.temp = "%d" % (WeatherData['temp_c'])
-                    self.rainfall[self.curr_day] = "%f" % (WeatherData['precip_today_metric'])
-                if TRACE :
-                    WGTracePrint('temp is ' + self.temp)
-                if (self.max_temps[self.curr_day] == 0) and (self.min_temps[self.curr_day] == 0) :
-                    self.min_temps[self.curr_day] = float(self.temp)
-                    self.max_temps[self.curr_day] = float(self.temp)
+            self.wLastUpdate = WeatherData['observation_time']
+            if TRACE :
+                WGTracePrint("New Weather " + self.wLastUpdate)
+            self.temp = "%d" % (WeatherData['temp_f'])
+            # self.rainfall[self.curr_day] = WeatherData['precip_today_in']
+            if TRACE :
+                WGTracePrint('temp is ' + self.temp)
+            if (self.max_temps[self.curr_day] == 0) and (self.min_temps[self.curr_day] == 0) :
+                self.min_temps[self.curr_day] = float(self.temp)
+                self.max_temps[self.curr_day] = float(self.temp)
+                self.save_data()
+            # if the value changed from last time, what color should we now display?
+            if (oldtemp == float(TEMP_DEFAULT)) :
+                self.tempcolor = COLOR_TEXT_NORMAL
+            elif (float(self.temp) > oldtemp) :
+                self.tempcolor = COLOR_TEXT_RISING
+                if (float(self.temp) > self.max_temps[self.curr_day]) :
+                    self.max_temps[self.curr_day] = float(self.temp) # save the new max
                     self.save_data()
-                # if the value changed from last time, what color should we now display?
-                if (oldtemp == float(TEMP_DEFAULT)) :
-                    self.tempcolor = COLOR_TEXT_NORMAL
-                elif (float(self.temp) > oldtemp) :
-                    self.tempcolor = COLOR_TEXT_RISING
-                    if (float(self.temp) > self.max_temps[self.curr_day]) :
-                        self.max_temps[self.curr_day] = float(self.temp) # save the new max
-                        self.save_data()
-                elif (float(self.temp) < oldtemp) :
-                    self.tempcolor = COLOR_TEXT_FALLING
-                    if (float(self.temp) < self.min_temps[self.curr_day]) :
-                        self.min_temps[self.curr_day] = float(self.temp) # save the new min
-                        self.save_data()
-                self.curr_cond = WeatherData['weather']
-                if (UNITS == UNITS_IMPERIAL) :
-                    self.feels_like = "%d" % (int(round(float(WeatherData['feelslike_f']))))
-                else :
-                    self.feels_like = "%d" % (int(round(float(WeatherData['feelslike_c']))))
-                if (UNITS == UNITS_IMPERIAL) :
-                    self.wind_speed = "%d" % (int(WeatherData['wind_mph']))
-                else :
-                    self.wind_speed = "%d" % (int(WeatherData['wind_kph']))
-                if (UNITS == UNITS_IMPERIAL) :
-                    self.baro = WeatherData['pressure_in']
-                else :
-                    self.baro = WeatherData['pressure_mb']
-                # if the value changed from last time, what color should we now display?
-                if (oldbaro == BARO_DEFAULT) :
-                    self.barocolor = COLOR_TEXT_NORMAL
-                elif (float(self.baro) > oldbaro) :
-                    self.barocolor = COLOR_TEXT_RISING
-                elif (float(self.baro) < oldbaro) :
-                    self.barocolor = COLOR_TEXT_FALLING
-                self.wind_dir = WeatherData['wind_dir']
-                self.humid = WeatherData['relative_humidity'].rstrip('%')
-                if TRACE :
-                    WGTracePrint("Sending WU Data to ThingSpeak")
-                # Tell ThingSpeak what the temperature, humidity, & barometric pressure is
-                ThingSpeakSendFloatNum(TS_WEATHER_CHAN, 4, "1", self.temp, "2", self.baro, "3",
-                    self.humid, "4", WeatherData['pws'], TRACE)
-                # if the value changed from last time, what color should we now display?
-                if (oldhumid == HUMID_DEFAULT) :
-                    self.humidcolor = COLOR_TEXT_NORMAL
-                elif (float(self.humid) > oldhumid) :
-                    self.humidcolor = COLOR_TEXT_RISING
-                elif (float(self.humid) < oldhumid) :
-                    self.humidcolor = COLOR_TEXT_FALLING
-                if (UNITS == UNITS_IMPERIAL) :
-                    self.vis = WeatherData['visibility_mi']
-                else :
-                    self.vis = WeatherData['visibility_km']
-                if (UNITS == UNITS_IMPERIAL) :
-                    self.gust = '%s' % (int(round(float(WeatherData['wind_gust_mph']))))
-                else :
-                    self.gust = '%s' % (int(round(float(WeatherData['wind_gust_kph']))))
-                if TRACE :
-                    WGTracePrint("forecast data")
-                    pp = pprint.PrettyPrinter(indent=4)
-                    pp.pprint(WeatherData['fc'])
-                    pp.pprint(WeatherData['fctxt'])
-                i = 0
-                for day in WeatherData['fc'] :
-                    self.day[i] = day['name']
-                    if (UNITS == UNITS_IMPERIAL) :
-                        self.temps[i][0] = day['high_f']
-                        self.temps[i][1] = day['low_f']
-                    else :
-                        self.temps[i][0] = day['high_c']
-                        self.temps[i][1] = day['low_c']
-                    self.rain[i] = day['icon']
-                    self.icon[i] = self.SaveURLtoFile(day['icon_url'], self.rain[i])
-                    i = i + 1
-                    if i > 3 :
-                        break
-                # There are two forecast details per day (day and night)
-                i = 0
-                for day in WeatherData['fctxt'] :
-                    if (UNITS == UNITS_IMPERIAL) :
-                        self.forecastdetails[i] = day['fcttext']
-                    else :
-                        self.forecastdetails[i] = day['fcttext_metric']
-                    i = i + 1
-                    if i > 7 :
-                        break
-                if TRACE :
-                    WGTracePrint("Sun and moon data")
-                self.sunrise = WeatherData['sunrise']
-                self.sunset = WeatherData['sunset']
-                self.moonrise = WeatherData['moonrise']
-                self.moonset = WeatherData['moonset']
-                s = 'moon'+str(WeatherData['ageOfMoon'])
-                self.moonicon = self.SaveURLtoFile(MoonPhaseURL() + s + '.gif', s)
-            else :
-                self.temp = '??'
-                self.wLastUpdate = ''
+            elif (float(self.temp) < oldtemp) :
+                self.tempcolor = COLOR_TEXT_FALLING
+                if (float(self.temp) < self.min_temps[self.curr_day]) :
+                    self.min_temps[self.curr_day] = float(self.temp) # save the new min
+                    self.save_data()
+            self.curr_cond = WeatherData['weather']
+            self.windchill = "%d" % (int(round(float(WeatherData['windchill']))))
+            self.wind_speed = "%d" % (int(WeatherData['wind_mph']))
+            self.baro = WeatherData['pressure_in']
+            # if the value changed from last time, what color should we now display?
+            if (oldbaro == BARO_DEFAULT) :
+                self.barocolor = COLOR_TEXT_NORMAL
+            elif (float(self.baro) > oldbaro) :
+                self.barocolor = COLOR_TEXT_RISING
+            elif (float(self.baro) < oldbaro) :
+                self.barocolor = COLOR_TEXT_FALLING
+            self.wind_dir = WeatherData['wind_dir']
+            self.humid = WeatherData['relative_humidity'].rstrip('%')
+            if TRACE :
+                WGTracePrint("Sending WU Data to ThingSpeak")
+            # Tell ThingSpeak what the temperature, humidity, & barometric pressure is
+            ThingSpeakSendFloatNum(TS_WEATHER_CHAN, 3, "1", self.temp, "2", self.baro, "3",
+                self.humid, "", 0, TRACE)
+            # if the value changed from last time, what color should we now display?
+            if (oldhumid == HUMID_DEFAULT) :
+                self.humidcolor = COLOR_TEXT_NORMAL
+            elif (float(self.humid) > oldhumid) :
+                self.humidcolor = COLOR_TEXT_RISING
+            elif (float(self.humid) < oldhumid) :
+                self.humidcolor = COLOR_TEXT_FALLING
+            self.vis = WeatherData['visibility_mi']
+            self.gust = '%s' % (int(round(float(WeatherData['wind_gust_mph']))))
+            if TRACE :
+                WGTracePrint("forecast data")
+                pp = pprint.PrettyPrinter(indent=4)
+                pp.pprint(WeatherData['fc'])
+                pp.pprint(WeatherData['fctxt'])
+            i = 0
+            for day in WeatherData['fc'] :
+                self.day[i] = day['name']
+                self.temps[i][0] = day['high_f']
+                self.temps[i][1] = day['low_f']
+                self.rain[i] = day['icon']
+                self.icon[i] = "./icons/" + day['icon_url']
+                i = i + 1
+                if i > 3 :
+                    break
+            # There are two forecast details per day (day and night)
+            i = 0
+            for day in WeatherData['fctxt'] :
+                self.forecastdetails[i] = day['fcttext']
+                i = i + 1
+                if i > 3 :
+                    break
+            if TRACE :
+                WGTracePrint("Sun and moon data")
+            self.sunrise = WeatherData['sunrise']
+            self.sunset = WeatherData['sunset']
+            self.moonrise = WeatherData['moonrise']
+            self.moonset = WeatherData['moonset']
+            s = 'moon'+str(WeatherData['ageOfMoon'])
+            self.moonicon = self.SaveURLtoFile(MoonPhaseURL() + s + '.gif', s)
             if TRACE :
                 WGTracePrint('temp is ' + self.temp)
         except :
@@ -607,6 +573,27 @@ class SmDisplay:
             pp.pprint(WeatherData)
             self.temp = '??'
             self.wLastUpdate = ''
+        
+        # Keep track of a few pieces of data for further research
+        try :
+            # if it's the top of the hour
+            if (time.localtime().tm_min < 10) :
+                # save date, hour, thermostat temp, forecast data to .csv file
+                f = open("hourly_data.csv", "a+")
+                x = datetime.datetime.now()
+                t = RadThermGetFloat("temp", TRACE)
+                if t == RadTherm_float_ERROR :
+                    return
+                f.write(str(x.month) + "/" + str(x.day) + "/" + str(x.year) + ", " +
+                    str(x.hour) + ":00, " +
+                    str(t) + ", " +
+                    str(self.temps[0][0]) + ", " +
+                    str(self.temps[0][1]) + ", " +
+                    self.rain[0])
+                f.close()
+        except :
+            WGErrorPrint("UpdateWeather", "Tracking data output error.")
+            # Don't know what else we can do!
        
     ####################################################################
     #
@@ -694,15 +681,17 @@ class SmDisplay:
             else :
                 # else, if the furnace fan is on
                 if (fan == FAN_ON) and FFC_State['beenhere'] :
-                    # Return the thermostat to its former setting
-                    intret = RadThermSetInt("fmode", FFC_State['fmode'], TRACE)
-                    if intret == RadTherm_int_ERROR :
-                        return # try again next time
                     # Set Save energy mode on and then off again to run the current program
                     intret = RadThermSetInt("mode", SAVE_ENERGY_MODE_ENABLE, TRACE)
                     if intret == RadTherm_int_ERROR :
                         return # try again next time
                     intret = RadThermSetInt("mode", SAVE_ENERGY_MODE_DISABLE, TRACE)
+                    if intret == RadTherm_int_ERROR :
+                        return # try again next time
+                    # Return the thermostat to its former setting
+                    # Last call to the thermostat as if one of the previous fails, we might be stuck without adjusting
+                    # 'beenhere'
+                    intret = RadThermSetInt("fmode", FFC_State['fmode'], TRACE)
                     if intret == RadTherm_int_ERROR :
                         return # try again next time
                     FFC_State['beenhere'] = False
@@ -749,14 +738,9 @@ class SmDisplay:
         lc = COLOR_TEXT_NORMAL 
         fn = FONT_NORMAL
         
-        if (UNITS == UNITS_IMPERIAL) :
-            tempchar = "F"
-            barpressstr = "\"Hg"
-            speedstr = "mph"
-        else :
-            tempchar = "C"
-            barpressstr = "mb"
-            speedstr = "kph"
+        tempchar = "F"
+        barpressstr = "\"Hg"
+        speedstr = "mph"
         if (self.temp != "??") :
             if (int(self.temp) > 99) or (int(self.temp) < -9) :   # three digits
                 tempchar = ""              # get rid of the character for F or C
@@ -808,9 +792,9 @@ class SmDisplay:
         x2 = 0.78    # Second Column Xaxis Start Pos
 
         font = self.LoadFont(fn, int(ymax*th))
-        txt = font.render( 'Feels Like:', True, lc )
+        txt = font.render( 'Feels Like', True, lc )
         self.screen.blit( txt, (xmax*xp,ymax*st) )
-        txt = font.render( self.feels_like, True, lc )
+        txt = font.render( self.windchill, True, lc )
         self.screen.blit( txt, (xmax*x2,ymax*st) )
         (tx,ty) = txt.get_size()
         dfont = self.LoadFont(fn, int(ymax*dh))
@@ -891,7 +875,7 @@ class SmDisplay:
                 self.screen.blit(icon, (xmax*wx*((dyi*2)+1)-ix/2, ymax*(wy+gp*1.2)+yo))
             except :
                 # nothing.  We hope it works next time
-                WGErrorPrint("disp_weather", "Icon error: " + dytxt)
+                WGErrorPrint("disp_weather", "Icon error: " + dytxt + " " + self.icon[dyi])
 
         # Update the display
         pygame.display.update()
@@ -948,16 +932,10 @@ class SmDisplay:
         lc = COLOR_TEXT_NORMAL 
         fn = FONT_NORMAL
 
-        if (UNITS == UNITS_IMPERIAL) :
-            tempchar = "F"
-            tempvisstr = " mi"
-            barpressstr = " \"Hg"
-            speedstr = " mph"
-        else :
-            tempchar = "C"
-            tempvisstr = " km"
-            barpressstr = " mb"
-            speedstr = " kph"
+        tempchar = "F"
+        tempvisstr = " mi"
+        barpressstr = " \"Hg"
+        speedstr = " mph"
             
         myDisp.draw_screen_outline()
 
@@ -1001,8 +979,11 @@ class SmDisplay:
         self.sPrint(s, sfont, xmax*0.05, printline, lc)
 
         printline = printline + 1
-        s = "Visability %s" % self.vis
-        s = s + tempvisstr
+        if self.vis == 0 :
+            s = "Visibility NA"
+        else :
+            s = "Visability %s" % self.vis
+            s = s + tempvisstr
         self.sPrint( s, sfont, xmax*0.05, printline, lc )
         
         printline = printline + 1
@@ -1029,19 +1010,17 @@ class SmDisplay:
         myDisp.draw_tabs(TAB_HISTORY)
 
         # Display daily min and max temps
-        if (UNITS == UNITS_IMPERIAL) :
-            tempchar = "F"
-            rainunits = "in"
-        else :
-            tempchar = "C"
-            rainunits = "mm"
+        tempchar = "F"
+        rainunits = "in"
         sfont = self.LoadFont(FONT_NORMAL, int(self.ymax*self.tmdateSmTh))
         i = self.curr_day
         for j in range(7) :
             if ((self.min_temps[i] != 0) or (self.max_temps[i] != 0)) :
-                s = "%s - Min: %d°%s, Max: %d°%s, Rain: %s %s" % (DAY_NAMES[i], self.min_temps[i],
-                                                                    tempchar, self.max_temps[i], tempchar,
-                                                                    self.rainfall[i], rainunits)
+                #s = "%s - Min: %d°%s, Max: %d°%s, Rain: %s %s" % (DAY_NAMES[i], self.min_temps[i],
+                #                                                    tempchar, self.max_temps[i], tempchar,
+                #                                                    self.rainfall[i], rainunits)
+                s = "%s - Min: %d°%s, Max: %d°%s" % (DAY_NAMES[i], self.min_temps[i],
+                                                                    tempchar, self.max_temps[i], tempchar)
                 self.sPrint(s, sfont, self.xmax*0.05, 3+j, COLOR_TEXT_NORMAL)
             i = i - 1
             if (i == -1) :
@@ -1068,15 +1047,7 @@ class SmDisplay:
         sfont = self.LoadFont(FONT_NORMAL, int(self.ymax*self.subwinTh))
         txt = sfont.render(self.day[period], True, COLOR_TEXT_NORMAL)
         self.screen.blit(txt, (self.xmax*0.05, self.ymax*0.05*printline))
-        for ln in textwrap.wrap(self.forecastdetails[period*2], 50, subsequent_indent="  ") :
-            printline = printline + 1
-            txt = sfont.render(ln, True, COLOR_TEXT_NORMAL)
-            self.screen.blit(txt, (self.xmax*0.05, self.ymax*0.05*printline))
-        printline = printline + 2
-        ln = self.day[period] + ' Night'
-        txt = sfont.render(ln, True, COLOR_TEXT_NORMAL)
-        self.screen.blit(txt, (self.xmax*0.05, self.ymax*0.05*printline))
-        for ln in textwrap.wrap(self.forecastdetails[(period*2)+1], 50, subsequent_indent="  ") :
+        for ln in textwrap.wrap(self.forecastdetails[period], 50, subsequent_indent="  ") :
             printline = printline + 1
             txt = sfont.render(ln, True, COLOR_TEXT_NORMAL)
             self.screen.blit(txt, (self.xmax*0.05, self.ymax*0.05*printline))

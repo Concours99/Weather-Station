@@ -1,7 +1,14 @@
 TSChannelsAndKeys.py
 TWAccountSettings.py
 WUAccountSettings.py
+OWMAccountSettings.py
+DSAccountSettings.py
 __pycache__/
 icons/
 *.p
+*.csv
 Thumbs.db
+OWM-logo-sm.gif
+WGOpenWeatherMap.py
+WU-logo-sm.gif
+WGWeatherUnderground.py
