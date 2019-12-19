@@ -12,3 +12,10 @@ OWM-logo-sm.gif
 WGOpenWeatherMap.py
 WU-logo-sm.gif
 WGWeatherUnderground.py
+WGThingSpeak.py
+WGHelper.py
+DarkSky.py
+WGTwilio.py
+dark_sky_account_settings.py
+thingspeak_channels_keys.py
+twilio_account_settings.py
