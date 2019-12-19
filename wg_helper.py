@@ -15,18 +15,31 @@ import datetime
 #
 # Print out a trace message and flush the buffers.
 #
-def WGTracePrint(message) :
-    today = datetime.datetime.now()
-    outstring = (today.strftime("%x %X")
-                    + " - "
-                    + message)
-    print(outstring, flush=True)
-    
+def wg_trace_print(message, TRACE):
+    if TRACE:
+        today = datetime.datetime.now()
+        outstring = (today.strftime("%x %X")
+                     + " - "
+                     + message)
+        print(outstring, flush=True)
+
 ###############################################################################
 #
 # Print out an error message and flush the buffers.
 #
-def WGErrorPrint(where, message) :
+def wg_error_print(where, message) :
     outstring = "Error in " + where + "! " + message
-    WGTracePrint(outstring)
+    wg_trace_print(outstring, True)
 
+###############################################################################
+#
+# Print out a trace message and flush the buffers.
+#
+def wg_trace_pprint(message, TRACE):
+    if TRACE:
+        today = datetime.datetime.now()
+        outstring = (today.strftime("%x %X")
+                     + " - "
+                     + message)
+        print(outstring, flush=True)
+        
