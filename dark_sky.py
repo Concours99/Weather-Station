@@ -149,9 +149,10 @@ def getweatherdata(dsd):
                            .split(' ')[1].split(':'))
             else:
                 settime = "NA"
+        # wg_trace_print("moon rise " + str(risetime), True)
         if risetime != "NA":
             rtime = int(risetime[0])
-            if rtime >= 12:
+            if rtime >= 12: # after noon
                 ampm = "PM"
             else:
                 ampm = "AM"
@@ -162,13 +163,18 @@ def getweatherdata(dsd):
             dsd['moonrise'] = '%s:%s %s' % (rtime, risetime[1], ampm)
         else:
             dsd['moonrise'] = risetime
+        # wg_trace_print("moon set " + str(settime), True)
         if settime != "NA":
             stime = int(settime[0])
-            if stime > 12:
+            if stime >= 12:
                 stime = stime - 12
                 ampm = "PM"
             else:
                 ampm = "AM"
+            if stime > 12: # after noon
+                stime = stime - 12
+            elif stime == 0: # midnight
+                stime = 12
             dsd['moonset'] = '%s:%s %s' % (stime, settime[1], ampm)
         else:
             dsd['moonset'] = settime
