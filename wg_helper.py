@@ -20,7 +20,7 @@ WG_HELPER_VERSION = "2.02"
 def wg_init_log(file):
     """ Initialize the logfile.  Only 1MB file size. 3 rotations. """
     # always do this, even if not 'Trace'ing so we get errors
-    logzero.logfile(file, maxBytes=1e6, backupCount=3)
+    logfile(file, maxBytes=1e6, backupCount=3)
 
 ###############################################################################
 #
