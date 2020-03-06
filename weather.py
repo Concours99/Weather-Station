@@ -15,7 +15,7 @@
 # -*- coding: utf-8 -*-
 ### BEGIN LICENSE
 # Portions Copyright (c) 2014 Jim Kemp <kemp.jim@gmail.com>
-# Majority Copyright (c) 2018 Wayne Geiser <wayne@geiserweb.com>
+# Majority Copyright (c) 2018-2020 Wayne Geiser <wayne@geiserweb.com>
 
 #Permission is hereby granted, free of charge, to any person
 #obtaining a copy of this software and associated documentation
@@ -54,6 +54,7 @@ import pygame
 from wg_helper import wg_trace_print
 from wg_helper import wg_error_print
 from wg_helper import wg_trace_pprint
+from wg_helper import wg_init_log
 from wg_radio_thermostat import radtherm_set_str
 from wg_radio_thermostat import RADTHERM_STR_ERROR
 from wg_radio_thermostat import radtherm_status
@@ -79,7 +80,7 @@ from wg_twilio import sendtext
 from dark_sky import getweatherdata
 from dark_sky import moonphaseurl
 
-__version__ = "v2.1"
+__version__ = "v2.2"
 TRACE = False       # write tracing lines to log file
 CONTROL_LOG = False  # write lines to show control functions
 ALERT = True        # For testing purposes, don't send text alerts
@@ -1202,6 +1203,7 @@ def daylight(buff):
 #==============================================================
 #==============================================================
 
+wg_init_log("err.txt")
 wg_trace_print("weather station started.  Version: " + __version__, True)
 MODE = 'w'      # Default to weather mode.
 DETAILS_DAY = 0

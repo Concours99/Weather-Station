@@ -1,7 +1,7 @@
 """ Helper routines I find useful for most of my python code"""
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-# Copyright (C) 2018, Wayne Geiser (geiserw@gmail.com).  All Rights Reserved
+# Copyright (C) 2018-2020, Wayne Geiser (geiserw@gmail.com).  All Rights Reserved
 #
 # Helper functiona and definitions common to my code
 #
@@ -9,8 +9,18 @@
 # packages.
 import datetime
 import pprint
+from logzero import logger, logfile
 
-WG_HELPER_VERSION = "2.01"
+WG_HELPER_VERSION = "2.02"
+
+###############################################################################
+#
+# Initialize logging
+#
+def wg_init_log(file):
+    """ Initialize the logfile.  Only 1MB file size. 3 rotations. """
+    # always do this, even if not 'Trace'ing so we get errors
+    logzero.logfile(file, maxBytes=1e6, backupCount=3)
 
 ###############################################################################
 #
@@ -19,9 +29,7 @@ WG_HELPER_VERSION = "2.01"
 def wg_trace_print(message, trace):
     """ Print out a tracing message."""
     if trace:
-        today = datetime.datetime.now()
-        outstring = (today.strftime("%x %X") + " - " + message)
-        print(outstring, flush=True)
+        logger.info(message)
 
 ###############################################################################
 #
@@ -29,8 +37,7 @@ def wg_trace_print(message, trace):
 #
 def wg_error_print(where, message):
     """Print out an error message."""
-    outstring = "Error in " + where + "! " + message
-    wg_trace_print(outstring, True)
+    logger.error(where + ": " + message)
 
 ###############################################################################
 #
@@ -40,4 +47,4 @@ def wg_trace_pprint(struct, trace):
     """Nicely print out a structure if we're tracing"""
     if trace:
         pprt = pprint.PrettyPrinter(indent=4)
-        pprt.pprint(struct)
+        logger.info(pprt.pformat(struct))

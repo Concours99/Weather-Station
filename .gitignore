@@ -19,3 +19,4 @@ WGTwilio.py
 dark_sky_account_settings.py
 thingspeak_channels_keys.py
 twilio_account_settings.py
+err.txt
