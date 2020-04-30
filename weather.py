@@ -70,6 +70,8 @@ from wg_radio_thermostat import SAVE_ENERGY_MODE_DISABLE
 from wg_radio_thermostat import RADTHERM_FLOAT_ERROR
 from wg_radio_thermostat import radtherm_set_float
 from wg_radio_thermostat import FAN_CIRC
+from wg_radio_thermostat import radtherm_get_todays_highest_setting
+from wg_radio_thermostat import radtherm_get_todays_lowest_setting
 from wg_thingspeak import thingspeakgetfloat
 from wg_thingspeak import TS_BASEMENT_CHAN
 from wg_thingspeak import THINGSPEAK_FLOAT_ERROR
@@ -80,9 +82,9 @@ from wg_twilio import sendtext
 from dark_sky import getweatherdata
 from dark_sky import moonphaseurl
 
-__version__ = "v2.2"
+__version__ = "v2.3"
 TRACE = False       # write tracing lines to log file
-CONTROL_LOG = False  # write lines to show control functions
+CONTROL_LOG = True  # write lines to show control functions
 ALERT = True        # For testing purposes, don't send text alerts
 FURNACE_TRACE = False # Trace messages for the furnace control code
 
@@ -273,6 +275,55 @@ def furnacefancontrol():
                     return # try again next time
                 wg_trace_print("Turned the furnace fan to auto", CONTROL_LOG)
                 FFC_STATE['beenhere'] = False
+
+####################################################################
+#
+# If the weather forecast is for warm weather, adjust the thermostat
+# setting so as to let the weather heat the house more
+#
+# If the thermostat is at its highest setting (i.e., not set back)
+# and the forecast high temperature for the day is greater than or
+# equal to that highest setting, set the thermostat to halfway
+# between the highest and lowest setting for the day.
+#
+def adjusttstatsetting(forecast_high):
+    """Adjust the thermostat setting based on the weather forecast"""
+    # what is the tstat's current setting?
+    tstat_status = radtherm_status()
+    if 'error' in tstat_status:
+        wg_error_print("adjusttstatsetting",
+                       "Error getting thermostat status.  Skipping thermostat control")
+        return  # try again the next time
+    if tstat_status['hold'] == HOLD_ENABLED:
+        return # don't mess with the settings, someone wants them this way
+    tmode = tstat_status['tmode']   # thermostat mode (heat?)
+    if tmode == TMODE_HEAT:
+        tstat_high = radtherm_get_todays_highest_setting(TRACE)
+        if tstat_high == RADTHERM_FLOAT_ERROR:
+            wg_error_print("adjusttstatsetting", "Error getting highest setting")
+            return # Try again next time
+        tstat_temp = tstat_status['t_heat']
+        wg_trace_print("tstat_high = " + str(tstat_high) + ", tstat_temp = " + str(tstat_temp), TRACE)
+        if tstat_temp == tstat_high:
+            high_temp = int(forecast_high.split('°')[0])
+            wg_trace_print("forecast_high = " + str(forecast_high), TRACE)
+            wg_trace_print("high_temp = " + str(high_temp), TRACE)
+            if high_temp >= tstat_temp:
+                tstat_low = radtherm_get_todays_lowest_setting(TRACE)
+                if tstat_low == RADTHERM_FLOAT_ERROR:
+                    wg_error_print("adjusttstatsetting", "Error getting lowest setting")
+                    return # Try again next time
+                setback_temp = tstat_high - (tstat_high - tstat_low) / 2
+                wg_trace_print("tstat_low = " + str(tstat_low) + ", setback_temp = " + str(setback_temp), TRACE)
+                floatret = radtherm_set_float("t_heat", setback_temp, TRACE)
+                if floatret == RADTHERM_FLOAT_ERROR:
+                    wg_error_print("adjusttstatsetting", "Error setting t_heat")
+                    return
+                wg_trace_print(("T-stat is set to " + str(tstat_temp) +
+                                ", Forecast high temp is " + str(high_temp) +
+                                ", highest tstat setting is " + str(tstat_high) +
+                                ", Set the thermostat to " + str(setback_temp)), CONTROL_LOG)
+
 
 ####################################################################
 #
@@ -1203,6 +1254,11 @@ def daylight(buff):
 #==============================================================
 #==============================================================
 
+# Create the .pid file for monit to monitor this process
+pid = str(os.getpid())
+pidfile = "/tmp/weather.pid"
+open(pidfile, 'w').write(pid)
+
 wg_init_log("err.txt")
 wg_trace_print("weather station started.  Version: " + __version__, True)
 MODE = 'w'      # Default to weather mode.
@@ -1326,6 +1382,7 @@ while RUNNING:
             MYDISP.updateweather()
             updateinsidedata()
             furnacefancontrol()
+            adjusttstatsetting(MYDISP.temps[0][0])
 
     # History display mode
     if MODE == 'h':

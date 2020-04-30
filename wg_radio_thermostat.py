@@ -13,7 +13,7 @@ from urllib3 import PoolManager
 from wg_helper import wg_error_print
 from wg_helper import wg_trace_print
 
-WG_RADIO_THERMOSTAT_VERSION = "2.0"
+WG_RADIO_THERMOSTAT_VERSION = "2.1"
 
 # The name (URL) of your Radio Thermostat
 TSTAT_IP = "thermostat-76-8C-C9"
@@ -75,6 +75,7 @@ def radtherm_status():
         wg_error_print("radtherm_status", " Unsuccessful status request (exception)")
         return RADTHERM_STATUS_ERROR
 
+
 ###############################################################################
 #
 # Make a call to the thermostat to get a floating point data value.
@@ -107,6 +108,7 @@ def radtherm_get_float(what, trace):
     except Exception: #pylint: disable=W0703
         wg_error_print("radtherm_get_float", " Unsuccessful GET request (exception) of " + what)
         return RADTHERM_FLOAT_ERROR
+
 
 ###############################################################################
 #
@@ -142,6 +144,7 @@ def radtherm_get_int(what, trace):
         wg_error_print("radtherm_get_int", " Unsuccessful GET request (exception) of " + what)
         return RADTHERM_INT_ERROR
 
+
 ###############################################################################
 #
 # Make a call to the thermostat to set afloating point data value.
@@ -170,6 +173,7 @@ def radtherm_set_float(what, value, trace):
     except Exception: #pylint: disable=W0703
         wg_error_print("radtherm_set_float", " Unsuccessful POST request (exception) of " + what)
         return RADTHERM_FLOAT_ERROR
+
 
 ###############################################################################
 #
@@ -209,6 +213,7 @@ def radtherm_set_int(what, value, trace):
         wg_error_print("radtherm_set_int", " Unsuccessful POST request (exception) of " + what)
         return RADTHERM_INT_ERROR
 
+
 ###############################################################################
 #
 # Make a call to the thermostat to set a string data value.
@@ -245,6 +250,7 @@ def radtherm_set_str(what, value, trace):
         return RADTHERM_STR_ERROR
     return RADTHERM_STR_SUCCESS
 
+
 ###############################################################################
 #
 # Return the lowest temperature in today's program
@@ -253,19 +259,60 @@ def radtherm_set_str(what, value, trace):
 #
 def radtherm_get_todays_lowest_setting(trace):
     """Figure out the lowest temp setting in today's program."""
+    days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+    num_tries = 1
+    retval = {}
+    prog = RADTHERM_FLOAT_ERROR
     try:
         pman = PoolManager()
-        url = 'http://' + TSTAT_IP +'/tstat/program/heat'
-        ret = pman.request('GET', url)
-        retval = json.loads(ret.data.decode('utf-8'))
-        if trace:
-            pprt = pprint.PrettyPrinter(indent=4)
-            pprt.pprint(retval)
         wkdy = datetime.datetime.today().weekday()
-        prog = retval[str(wkdy)]
-        prog.sort()
-        return prog[0]
-    except Exception: #pylint: disable=W0703
-        wg_error_print("radtherm_get_todays_lowest_setting",
-                       " Unsuccessful POST request (exception)")
-        return RADTHERM_FLOAT_ERROR
+        url = 'http://' + TSTAT_IP +'/tstat/program/heat/' + days[wkdy]
+        while num_tries < 6 and retval.get(str(wkdy), 'error') == 'error':
+            ret = pman.request('GET', url)
+            retval = json.loads(ret.data.decode('utf-8'))
+            if trace:
+                pprt = pprint.PrettyPrinter(indent=4)
+                pprt.pprint(retval)
+            if retval.get(str(wkdy), 'error') != 'error':
+                prog = min((retval[str(wkdy)])[1::2]) # 1,3,5, etc. elements are temps
+            num_tries += 1
+        return prog
+    except Exception as err: #pylint: disable=W0703
+        wg_error_print("radtherm_get_todays_highest_setting",
+                       str(err))
+        wg_error_print(err.response.text)
+        return prog
+
+
+###############################################################################
+#
+# Return the highest temperature in today's program
+# Args:
+#   trace = true or false, print trace messages
+#
+def radtherm_get_todays_highest_setting(trace):
+    """Figure out the highest temp setting in today's program."""
+    days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+    num_tries = 1
+    retval = {}
+    prog = RADTHERM_FLOAT_ERROR
+    try:
+        pman = PoolManager()
+        wkdy = datetime.datetime.today().weekday()
+        url = 'http://' + TSTAT_IP +'/tstat/program/heat/' + days[wkdy]
+        while num_tries < 6 and retval.get(str(wkdy), 'error') == 'error':
+            ret = pman.request('GET', url)
+            retval = json.loads(ret.data.decode('utf-8'))
+            if trace:
+                pprt = pprint.PrettyPrinter(indent=4)
+                pprt.pprint(retval)
+            if retval.get(str(wkdy), 'error') != 'error':
+                prog = max((retval[str(wkdy)])[1::2]) # 1,3,5, etc. elements are the temps
+            num_tries += 1
+        return prog
+    except Exception as err: #pylint: disable=W0703
+        wg_error_print("radtherm_get_todays_highest_setting",
+                       str(err))
+        if hasattr('err', 'response'):
+            wg_error_print(err.response.text)
+        return prog
