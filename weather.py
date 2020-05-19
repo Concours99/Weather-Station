@@ -49,6 +49,8 @@ import textwrap
 import pickle
 from pygame.locals import *
 import pygame
+from openpyxl import load_workbook
+from openpyxl import Workbook
 
 # My local packages
 from wg_helper import wg_trace_print
@@ -82,11 +84,12 @@ from wg_twilio import sendtext
 from dark_sky import getweatherdata
 from dark_sky import moonphaseurl
 
-__version__ = "v2.3"
+__version__ = "v2.4"
 TRACE = False       # write tracing lines to log file
 CONTROL_LOG = True  # write lines to show control functions
 ALERT = True        # For testing purposes, don't send text alerts
 FURNACE_TRACE = False # Trace messages for the furnace control code
+RECORD_TRACE = True # Trace messages for record high/low code
 
 # Config for climate control functions
 FLOOR_TEMP_DIFFERENTIAL = 5
@@ -131,6 +134,9 @@ RUNNING_LOC = "./"
 TEMP_DEFAULT = -99.0
 BARO_DEFAULT = -99.0
 HUMID_DEFAULT = -99
+# These cache the record high/low so we don't have to use the
+# (slow) Excel access routines every time we need the values
+RECORD_DATA = [0, 0, 0, 0]
 
 # Control tabs
 TAB_LABELS = ["Weather", "Almanac", "Alert", "History", "Details"]
@@ -375,16 +381,99 @@ def saveurltofile(url, fil_name):
     # return the fileneme
     return fil
 
+
+####################################################################
+#
+# Return True if the argument is a leap year.  False otherwise
+#
+#   arguments:
+#       year_arg: the year to determine if it is a leap year
+#
+def is_leap_year(year_arg):
+    """If year_arg is a leap year, return True, else return False"""
+    if (year_arg % 4) == 0:
+        if (year_arg % 100) == 0:
+            if (year_arg % 400) == 0:
+                return True
+            else:
+                return False
+        else:
+            return True
+    else:
+        return False
+
+
+###########################################################################
+#
+# Return the record high/low temperature and the years it was set in a
+# 4 element array
+#
+#   arguments:
+#       mode:          0 - return current record high/low data
+#                      1 - set new record high
+#                      2 - set new record low
+#       high_temp_arg: the new high temperature (if setting)
+#       high_year_arg: the year to set the high temperature to or
+#                      zero if just getting the high temperature
+#       low_temp_arg:  the new high temperature (if setting)
+#       low_year_arg:  the year to set the high temperature to or
+#                      zero if just getting the high temperature
+#
+###########################################################################
+def get_record_data(mode, high_temp_arg, high_year_arg, low_temp_arg,
+                    low_year_arg):
+    """if either year_arg is 0, return the record temps for today, else
+        set the high temp for today to temp_arg"""
+    global RECORD_DATA
+
+    if mode != 0 or RECORD_DATA[0] == 0:
+        # Either we need to get new data or we're setting a new high/low
+        wb = load_workbook(filename = "Records.xlsx", data_only=True)
+        ws = wb['Sheet1']
+        r = time.localtime().tm_yday + 1 # +1 for the spreadsheet header
+                                         # row
+        if r > 59 and not is_leap_year(time.localtime().tm_year):
+            # 59 = the number of days in January and February,
+            # excluding leap day
+            r += 1 # skip the leap day (it doesn't exist this year)
+        if mode == 0:
+            # Get the record high/low data from the spreadsheet
+            # return existing values
+            th = ws.cell(row=r, column=3).value
+            yh = ws.cell(row=r, column=4).value
+            tl = ws.cell(row=r, column=5).value
+            yl = ws.cell(row=r, column=6).value
+        elif mode == 1:
+            # Set a new record high
+            th = ws.cell(row=r, column=3).value = high_temp_arg
+            yh = ws.cell(row=r, column=4).value = high_year_arg
+            tl = ws.cell(row=r, column=5).value
+            yl = ws.cell(row=r, column=6).value
+            wg_trace_print("Recorded new record high of " + str(th),   
+                           RECORD_TRACE)
+        else: # mode == 2
+            # Set a new record low
+            th = ws.cell(row=r, column=3).value
+            yh = ws.cell(row=r, column=4).value
+            tl = ws.cell(row=r, column=5).value = low_temp_arg
+            yl = ws.cell(row=r, column=6).value = low_year_arg
+            wg_trace_print("Recorded new record low of " + str(tl),   
+                           RECORD_TRACE)
+        wb.save("Records.xlsx")
+        RECORD_DATA = [th, yh, tl, yl]
+    return RECORD_DATA
+
+
 # Small LCD Display.
 class SmDisplay:
     """Class for application"""
     screen = None
 
-    ###############################################################################
+    #######################################################################
     #
     # Handle weather alerts
     #
-    ###############################################################################
+    #######################################################################
     def handle_alerts(self, weatherdata):
         """Send any alerts that we haven't already sent"""
         try:
@@ -409,42 +498,57 @@ class SmDisplay:
             wg_error_print("UpdateWeather", "Alert Exception")
             wg_trace_pprint(weatherdata['alerts'], True)
 
-    ###############################################################################
+    #######################################################################
     #
     # Track some data for future research
     #
-    ###############################################################################
+    # Spreadsheet?  A new spreadsheet for each year, a new sheet for each
+    # month
+    #
+    #######################################################################
     def log_research_data(self):
         """Keep track of a few pieces of data for further research"""
+        global RECORD_DATA
+
         try:
             # if it's the top of the hour
             if time.localtime().tm_min < 10:
-                # save date, hour, thermostat temp, forecast data to .csv file
-                fil = open("hourly_data.csv", "a+")
+                # save date, hour, thermostat temp, forecast data to .xlsx file
                 rightnow = datetime.datetime.now()
+                ss_name = str(rightnow.year) + "hourly_data.xlsx"
+                if not os.path.isfile(ss_name):
+                    # Create the spreadsheet file
+                    wb = Workbook()
+                    # Get rid of the default worksheet
+                    ws = wb['Sheet']
+                    wb.remove(ws)
+                else:
+                    wb = load_workbook(filename = ss_name, data_only=True)
+                ws_name = 'Sheet-' + str(rightnow.month)
+                if not ws_name in wb.sheetnames:
+                    # create the worksheet
+                    wb.create_sheet(ws_name)
+                ws = wb[ws_name]
                 tstat_temp = radtherm_get_float("temp", TRACE)
-                if tstat_temp != RADTHERM_FLOAT_ERROR:
-                    fil.write(str(rightnow.month) + "/" +
-                              str(rightnow.day) + "/" +
-                              str(rightnow.year) + ", " +
-                              str(rightnow.hour) + ":00, " +
-                              str(tstat_temp) + ", " +
-                              str(self.temps[0][0]) + ", " +
-                              str(self.temps[0][1]) + ", " +
-                              self.data['rain'][0])
-                fil.close()
+                ws.append([rightnow.month, rightnow.day, rightnow.year,
+                           rightnow.hour, tstat_temp, self.temps[0][0],
+                           self.temps[0][1], self.data['rain'][0]])
+                wb.save(ss_name)
+                # Reset record high/low so it'll get reloaded from the
+                # spreadsheet
+                RECORD_DATA = [0, 0, 0, 0]
         except:
             wg_error_print("UpdateWeather", "Tracking data output error.")
             # Don't know what else we can do!
 
-    ###########################################################################
+    #######################################################################
     #
     # Load the font from a file if I can't find it native
     #
     # Note, for efficiency, we save a loaded font under its name and size
     # so we don't have to reload it.
     #
-    ###########################################################################
+    #######################################################################
     def loadfont(self, font_name, size):
         """Load non-native fonts from a file"""
         # Have we already loaded (and saved) the font of this name & size?
@@ -640,11 +744,11 @@ class SmDisplay:
             self.screen.blit(txt, (self.xmax+BORDER_WIDTH,
                                    self.ymax*(0.15*(i+1))-BORDER_WIDTH-txt_hei))
 
-    ###########################################################################
+    #######################################################################
     #
     # Draw the outline
     #
-    ###########################################################################
+    #######################################################################
     def draw_screen_outline(self):
         """Draw the border lines"""
         # If we have alerts, draw the outline in red
@@ -772,6 +876,13 @@ class SmDisplay:
             else:
                 self.data['tempcolor'] = color_rising_falling(oldtemp, float(self.data['temp']),
                                                               self.data['tempcolor'])
+            # New record high or low?
+            if int(self.data['temp']) > int(get_record_data(0, 0, 0, 0, 0)[0]):
+                get_record_data(1, int(self.data['temp']),
+                                time.localtime().tm_year, 0, 0)
+            if int(self.data['temp']) < int(get_record_data(0, 0, 0, 0, 0)[2]):
+                get_record_data(2, 0, 0, int(self.data['temp']),
+                                time.localtime().tm_year)
             if ((float(self.data['temp']) > oldtemp) and
                     (float(self.data['temp']) > self.max_temps[self.curr_day])):
                 self.max_temps[self.curr_day] = float(self.data['temp']) # save the new max
@@ -1109,6 +1220,15 @@ class SmDisplay:
         printline = printline + 1
         ostr = "Moon Rise/Set %s / %s" % (self.data['moonrise'], self.data['moonset'])
         self.sprint(ostr, sfont, xmax*0.05, printline, lcol)
+        
+        # Display record highs and lows
+        printline = printline + 1
+        records = get_record_data(0, 0, 0, 0, 0)
+        ostr = "Record high / low %d (%d) / %d (%d)" % (records[0],
+                                                        records[1],
+                                                        records[2],
+                                                        records[3])
+        self.sprint(ostr, sfont, xmax*0.05, printline, lcol)
 
         # Moon phase
         icon = pygame.image.load(os.path.join(RUNNING_LOC, self.data['moonicon']))
@@ -1117,6 +1237,7 @@ class SmDisplay:
 
         # Update the display
         pygame.display.update()
+
 
     ####################################################################
     #
@@ -1130,10 +1251,18 @@ class SmDisplay:
         # Draw tabs
         MYDISP.draw_tabs(TAB_HISTORY)
 
+        sfont = self.loadfont(FONT_NORMAL, int(self.ymax*self.data['tmdatesmth']))
+
+        # Display record highs and lows
+        wb = load_workbook(filename = "Records.xlsx", data_only=True)
+        ws = wb["Sheet1"]
+        records = get_record_data(0, 0, 0, 0, 0)
+        ostr = "Record high is %d on %d" % (records[0], records[1])
+        self.sprint(ostr, sfont, self.xmax*0.05, 3, COLOR_TEXT_NORMAL)
+        ostr = "Record low is %d on %d" % (records[2], records[3])
+        self.sprint(ostr, sfont, self.xmax*0.05, 4, COLOR_TEXT_NORMAL)
         # Display daily min and max temps
         tempchar = "F"
-        #rainunits = "in"
-        sfont = self.loadfont(FONT_NORMAL, int(self.ymax*self.data['tmdatesmth']))
         i = self.curr_day
         for j in range(7):
             if ((self.min_temps[i] != 0) or (self.max_temps[i] != 0)):
@@ -1142,7 +1271,7 @@ class SmDisplay:
                 #                                                    self.rainfall[i], rainunits)
                 ostr = "%s - Min: %d°%s, Max: %d°%s" % (DAY_NAMES[i], self.min_temps[i],
                                                         tempchar, self.max_temps[i], tempchar)
-                self.sprint(ostr, sfont, self.xmax*0.05, 3+j, COLOR_TEXT_NORMAL)
+                self.sprint(ostr, sfont, self.xmax*0.05, 5+j, COLOR_TEXT_NORMAL)
             i = i - 1
             if i == -1:
                 i = 6
