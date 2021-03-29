@@ -22,3 +22,4 @@ twilio_account_settings.py
 err.txt
 *.img
 *.xlsx
+tempest_account_settings.py

@@ -83,8 +83,9 @@ from thingspeak_channels_keys import TS_WEATHER_CHAN
 from wg_twilio import sendtext
 from dark_sky import getweatherdata
 from dark_sky import moonphaseurl
+from tempest import getPWSdata
 
-__version__ = "v2.4"
+__version__ = "v3.2"
 TRACE = False       # write tracing lines to log file
 CONTROL_LOG = True  # write lines to show control functions
 ALERT = True        # For testing purposes, don't send text alerts
@@ -331,20 +332,35 @@ def adjusttstatsetting(forecast_high):
                                 ", Set the thermostat to " + str(setback_temp)), CONTROL_LOG)
 
 
-####################################################################
+###############################################################################
 #
 # Get data from interior data sources and update ThingSpeak
 def updateinsidedata():
     """Get data from the interior data sources and update ThingSpeak"""
     wg_trace_print("Updating inside data", TRACE)
-    tmp = radtherm_get_float("temp", TRACE)
+    i = 0
+    while True:
+        tmp = radtherm_get_float("temp", TRACE)
+        if (tmp > 0):
+            break
+        i = i + 1
+        if (i > 5):
+            return # skip this time around
     if tmp != RADTHERM_FLOAT_ERROR:
         # Get the humidity from the hall thermostat
         wg_trace_print("Get thermostat humidity data", TRACE)
-        humid = radtherm_get_float("humidity", TRACE)
+        i = 0
+        while True:
+            humid = radtherm_get_float("humidity", TRACE)
+            if (humid > 0):
+                break
+            i = i + 1
+            if (i > 5):
+                return # skip this time around
         wg_trace_print("Thermostat returned humid = " + str(humid), TRACE)
         if humid != RADTHERM_FLOAT_ERROR:
-            thingspeaksendfloatnum(TS_THERM_CHAN, 2, "1", tmp, "2", humid, " ", 0, " ", 0, TRACE)
+            thingspeaksendfloatnum(TS_THERM_CHAN, 2, "1", tmp, "2", humid,
+                                   " ", 0, " ", 0, TRACE)
 
 ###############################################################################
 #
@@ -449,16 +465,16 @@ def get_record_data(mode, high_temp_arg, high_year_arg, low_temp_arg,
             yh = ws.cell(row=r, column=4).value = high_year_arg
             tl = ws.cell(row=r, column=5).value
             yl = ws.cell(row=r, column=6).value
-            wg_trace_print("Recorded new record high of " + str(th),   
-                           RECORD_TRACE)
+            msg = "Recorded new record high of " + str(th)
+            wg_trace_print(msg, RECORD_TRACE)
         else: # mode == 2
             # Set a new record low
             th = ws.cell(row=r, column=3).value
             yh = ws.cell(row=r, column=4).value
             tl = ws.cell(row=r, column=5).value = low_temp_arg
             yl = ws.cell(row=r, column=6).value = low_year_arg
-            wg_trace_print("Recorded new record low of " + str(tl),   
-                           RECORD_TRACE)
+            msg = "Recorded new record low of " + str(tl)
+            wg_trace_print(msg, RECORD_TRACE)
         wb.save("Records.xlsx")
         RECORD_DATA = [th, yh, tl, yl]
     return RECORD_DATA
@@ -641,7 +657,7 @@ class SmDisplay:
         # Remember min and max temperatures
         self.max_temps = [0, 0, 0, 0, 0, 0, 0]
         self.min_temps = [0, 0, 0, 0, 0, 0, 0]
-        # self.rainfall = [0, 0, 0, 0, 0, 0, 0]
+        self.rainfall = [0, 0, 0, 0, 0, 0, 0]
         self.curr_day = int(time.strftime("%w"))
         # Remember if we are loading fonts from a file
         fonts = pygame.font.get_fonts()
@@ -784,7 +800,7 @@ class SmDisplay:
         """save data to disk"""
         pickle.dump(self.max_temps, open("max_temps.p", "wb"))
         pickle.dump(self.min_temps, open("min_temps.p", "wb"))
-        # pickle.dump(self.rainfall, open("rainfall.p", "wb"))
+        pickle.dump(self.rainfall, open("rainfall.p", "wb"))
 
     ###########################################################################
     #
@@ -795,7 +811,7 @@ class SmDisplay:
         """restore saved data from disk"""
         self.max_temps = pickle.load(open("max_temps.p", "rb"))
         self.min_temps = pickle.load(open("min_temps.p", "rb"))
-        # self.rainfall = pickle.load(open("rainfall.p", "rb"))
+        self.rainfall = pickle.load(open("rainfall.p", "rb"))
 
     ###########################################################################
     #
@@ -835,7 +851,7 @@ class SmDisplay:
             self.curr_day = int(time.strftime("%w"))
             self.max_temps[self.curr_day] = 0
             self.min_temps[self.curr_day] = 0
-            # self.rainfall[self.curr_day] = 0
+            self.rainfall[self.curr_day] = 0
             self.save_data()
 
     ####################################################################
@@ -857,6 +873,12 @@ class SmDisplay:
             self.data['update'] = ''
             wg_error_print("updateweather", "Unable to get Weather Data")
             return
+            
+        if not getPWSdata(weatherdata):
+            self.data['temp'] = '??'
+            self.data['update'] = ''
+            wg_error_print("updateweather", "Unable to get PWS Data")
+            return
 
         self.handle_alerts(weatherdata) # send out any new alerts
 
@@ -864,7 +886,7 @@ class SmDisplay:
             self.data['update'] = weatherdata['observation_time']
             wg_trace_print("New Weather " + self.data['update'], TRACE)
             self.data['temp'] = "%d" % (weatherdata['temp_f'])
-            # self.rainfall[self.curr_day] = weatherdata['precip_today_in']
+            self.rainfall[self.curr_day] = weatherdata['precip_today_in']
             wg_trace_print('temp is ' + self.data['temp'], TRACE)
             if (self.max_temps[self.curr_day] == 0) and (self.min_temps[self.curr_day] == 0):
                 self.min_temps[self.curr_day] = float(self.data['temp'])
@@ -877,10 +899,22 @@ class SmDisplay:
                 self.data['tempcolor'] = color_rising_falling(oldtemp, float(self.data['temp']),
                                                               self.data['tempcolor'])
             # New record high or low?
-            if int(self.data['temp']) > int(get_record_data(0, 0, 0, 0, 0)[0]):
+            old_high = int(get_record_data(0, 0, 0, 0, 0)[0])
+            if int(self.data['temp']) > old_high:
+                msg = ("Set new record high temperature of " +
+                       str(self.data['temp']) + ". Old record was " +
+                       str(old_high) + " set in " +
+                       get_record_data(0, 0, 0, 0, 0)[1] + ".")
+                sendtext(msg)
                 get_record_data(1, int(self.data['temp']),
                                 time.localtime().tm_year, 0, 0)
-            if int(self.data['temp']) < int(get_record_data(0, 0, 0, 0, 0)[2]):
+            old_low = int(get_record_data(0, 0, 0, 0, 0)[2])
+            if int(self.data['temp']) < old_low:
+                msg = ("Set new record low temperature of " +
+                       str(self.data['temp']) + ". Old record was " +
+                       str(old_low) + " set in " +
+                       get_record_data(0, 0, 0, 0, 0)[3] + ".")
+                sendtext(msg)
                 get_record_data(2, 0, 0, int(self.data['temp']),
                                 time.localtime().tm_year)
             if ((float(self.data['temp']) > oldtemp) and
@@ -1264,13 +1298,12 @@ class SmDisplay:
         # Display daily min and max temps
         tempchar = "F"
         i = self.curr_day
+        rainunits = "\""
         for j in range(7):
             if ((self.min_temps[i] != 0) or (self.max_temps[i] != 0)):
-                #s = "%s - Min: %d°%s, Max: %d°%s, Rain: %s %s" % (DAY_NAMES[i], self.min_temps[i],
-                #                                            tempchar, self.max_temps[i], tempchar,
-                #                                                    self.rainfall[i], rainunits)
-                ostr = "%s - Min: %d°%s, Max: %d°%s" % (DAY_NAMES[i], self.min_temps[i],
-                                                        tempchar, self.max_temps[i], tempchar)
+                ostr = "%s - Min: %d°%s, Max: %d°%s, Rain: %s%s" % (DAY_NAMES[i], self.min_temps[i],
+                                                        tempchar, self.max_temps[i], tempchar,
+                                                        self.rainfall[i], rainunits)
                 self.sprint(ostr, sfont, self.xmax*0.05, 5+j, COLOR_TEXT_NORMAL)
             i = i - 1
             if i == -1:

@@ -1,7 +1,7 @@
 Weather.py
 
 Original: 2018-Apr-8
-Updated: 2019-Feb-14
+Updated: 2021-Mar-28
 
 The basis for this project came from one described online by Jim Kemp (kemp.jim@gmail.com).  While
 the my display screen is laid out VERY similar to Mr. Kemp's, there is very little left from his code.
@@ -98,6 +98,15 @@ Version 1.04
 	5) Update the tstat message line first in case we don't do any of the other working
 		in the Furnace fan control code.  If the tstat is on "hold", assume that someone
 		set the tstat to that state and don't change it.
+
+Version 3.1
+	1) Altered code to use my Weatherflow weather station for current conditions
+	2) Send a text message when a new record high or low is achieved
+
+Version 3.2
+	1) The thermostat seems to report back -1 for temp or humidity from time to
+	   time.  I added code to try a few times before giving up if this is the
+	   case.
 
 Future directions:
 	2) Control the WiFi thermostat with as-yet-determined algorithm that takes outside weather

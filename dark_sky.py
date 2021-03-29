@@ -14,6 +14,7 @@ import datetime
 import json
 import urllib3
 import ephem
+import sys
 from wg_helper import wg_error_print
 from wg_helper import wg_trace_print
 # This will contain your personal DarkSky key, etc.
@@ -184,7 +185,10 @@ def getweatherdata(dsd):
         for alert in curr.get('alerts', []):
             dsd['alerts'].append(alert['description'])
         return True
-    except ValueError:
-        wg_error_print("GetWeatherData", "Weather Collection Error #1 (status = " +
-                       str(status) + ")")
+    except:
+        wg_error_print("GetWeatherData",
+                       "Weather Collection Error #1 (status = " +
+                       str(status) + ") " +
+                       "(Exc type = " + str(sys.exc_info()[0]) + ") " +
+                       "(Exc value = " + str(sys.exc_info()[1]) + ")")
     return False
